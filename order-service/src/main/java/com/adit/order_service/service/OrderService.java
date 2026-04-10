@@ -5,6 +5,7 @@ import com.adit.order_service.repository.OrderRepository;
 import com.adit.order_service.vo.Product;
 import com.adit.order_service.vo.ResponseTemplate;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -15,9 +16,11 @@ public class OrderService {
 
     private final OrderRepository repository;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final RabbitTemplate rabbitTemplate;
 
-    public OrderService(OrderRepository repository) {
-        this.repository = repository;
+    public OrderService(OrderRepository repository, RabbitTemplate rabbitTemplate) {
+       this.repository = repository;
+       this.rabbitTemplate = rabbitTemplate;
     }
 
     public List<Order> getAll() {
@@ -41,7 +44,17 @@ public class OrderService {
             order.setTotal(total);
         }
 
-        return repository.save(order);
+        Order saved = repository.save(order);
+        
+        // Kirim notifikasi ke RabbitMQ
+        String message = "Order baru masuk! ID: " + saved.getId()
+                + ", Product ID: " + saved.getProductId()
+                + ", Jumlah: " + saved.getJumlah()
+                + ", Total: " + saved.getTotal();
+        rabbitTemplate.convertAndSend("order.notification", message);
+        System.out.println("Pesan terkirim ke RabbitMQ: " + message);
+
+        return saved;
     }
 
     public ResponseTemplate getOrderWithProduct(Long id) {
