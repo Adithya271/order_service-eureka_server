@@ -6,6 +6,7 @@ import com.adit.order_service.vo.Product;
 import com.adit.order_service.vo.ResponseTemplate;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,6 +18,9 @@ public class OrderService {
     private final OrderRepository repository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final RabbitTemplate rabbitTemplate;
+
+    @Value("${PRODUCT_SERVICE_URL:http://localhost:8083}")
+    private String productServiceUrl;
 
     public OrderService(OrderRepository repository, RabbitTemplate rabbitTemplate) {
        this.repository = repository;
@@ -31,11 +35,9 @@ public class OrderService {
         return repository.findById(id).orElse(null);
     }
 
-    //logic total
     public Order create(Order order) {
-
         Product product = restTemplate.getForObject(
-                "http://localhost:8081/api/product/" + order.getProductId(),
+                productServiceUrl + "/api/product/" + order.getProductId(),
                 Product.class
         );
 
@@ -46,7 +48,6 @@ public class OrderService {
 
         Order saved = repository.save(order);
         
-        // Kirim notifikasi ke RabbitMQ
         String message = "Order baru masuk! ID: " + saved.getId()
                 + ", Product ID: " + saved.getProductId()
                 + ", Jumlah: " + saved.getJumlah()
@@ -58,13 +59,12 @@ public class OrderService {
     }
 
     public ResponseTemplate getOrderWithProduct(Long id) {
-
         Order order = repository.findById(id).orElse(null);
 
         if (order == null) return null;
 
         Product product = restTemplate.getForObject(
-                "http://localhost:8081/api/product/" + order.getProductId(),
+                productServiceUrl + "/api/product/" + order.getProductId(),
                 Product.class
         );
 
