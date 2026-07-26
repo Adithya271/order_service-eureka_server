@@ -5,10 +5,14 @@ import com.adit.order_service.repository.OrderRepository;
 import com.adit.order_service.vo.Product;
 import com.adit.order_service.vo.ResponseTemplate;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
 
@@ -36,11 +40,30 @@ public class OrderService {
     }
 
     public Order create(Order order) {
-        Product product = restTemplate.getForObject(
-                productServiceUrl + "/api/product/" + order.getProductId(),
-                Product.class
+        // Ambil token dari request
+        String token = "";
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            HttpServletRequest request = attributes.getRequest();
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+        }
+
+        // Kirim token ke product-service
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Product> productResponse = new RestTemplate().exchange(
+            productServiceUrl + "/api/product/" + order.getProductId(),
+            HttpMethod.GET,
+            entity,
+            Product.class
         );
 
+        Product product = productResponse.getBody();
         if (product != null) {
             double total = product.getHarga() * order.getJumlah();
             order.setTotal(total);
@@ -60,18 +83,36 @@ public class OrderService {
 
     public ResponseTemplate getOrderWithProduct(Long id) {
         Order order = repository.findById(id).orElse(null);
-
         if (order == null) return null;
 
-        Product product = restTemplate.getForObject(
-                productServiceUrl + "/api/product/" + order.getProductId(),
-                Product.class
+        // Ambil token dari request header
+        String token = "";
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            HttpServletRequest request = attributes.getRequest();
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+        }
+
+        System.out.println("Token dikirim ke product-service: " + token.substring(0, 20) + "...");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Product> response = new RestTemplate().exchange(
+            productServiceUrl + "/api/product/" + order.getProductId(),
+            HttpMethod.GET,
+            entity,
+            Product.class
         );
 
-        ResponseTemplate response = new ResponseTemplate();
-        response.setOrder(order);
-        response.setProduct(product);
+        ResponseTemplate result = new ResponseTemplate();
+        result.setOrder(order);
+        result.setProduct(response.getBody());
 
-        return response;
+        return result;
     }
 }

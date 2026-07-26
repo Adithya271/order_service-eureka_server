@@ -30,16 +30,17 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // Endpoint public (tanpa token)
-                        .requestMatchers("/api/produk/public/**",
+                                        .requestMatchers("/api/order/public/**",
+                                        "/actuator/**",
                                 "/actuator/health",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html")
                         .permitAll()
                         // Endpoint untuk semua user yang login
-                        .requestMatchers("/api/produk/**").authenticated()
+                        .requestMatchers("/api/order/**").authenticated()
                         // Endpoint khusus admin
-                        .requestMatchers("/api/produk/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/order/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

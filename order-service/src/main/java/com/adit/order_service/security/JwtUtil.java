@@ -47,6 +47,12 @@ public class JwtUtil {
     }
 
     public Boolean validateToken(String token) {
+        try {
+        System.out.println("JWT Secret length: " + secret.length());
         return !isTokenExpired(token);
+    } catch (Exception e) {
+        System.out.println("JWT validation error: " + e.getMessage());
+        return false;
+    }
     }
 }
